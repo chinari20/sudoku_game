@@ -1,125 +1,180 @@
-#include<stdio.h>
+#include <stdio.h>
 
-int sudoku[9][9];   //The array which stores entries for the sudoku
+// Function prototypes for various parts of the Sudoku solver
+int input_grid();           // Reads and stores the input grid
+int validate_grid();        // Validates if the current grid is a valid Sudoku puzzle
+int solve_cell(int row, int column);  // Solves the puzzle using recursion (backtracking)
+int is_valid(int row, int column, int value);  // Checks if a value is valid at a specific cell
+void print_grid();          // Prints the Sudoku grid
 
-void solvesudoku(int, int);
-
-int checkrow(int row, int num)
-{
-    //This function checks whether we can put the number(num) in the row(row) of the Sudoku or not
-    int column;
-    for (column = 0; column < 9; column++)
-    {
-        if (sudoku[row][column] == num)
-        {
-            //If the number is found already present at certain location we return zero
-            return 0;
-        }
-    }
-    //If the number is not found anywhere we return 1
-    return 1;
-}
-
-int checkcolumn(int column, int num)
-{
-    //This function checks whether we can put the number(num) in the column(column) of the Sudoku or not
-    int row;
-    for (row = 0; row < 9; row++)
-    {
-        if (sudoku[row][column] == num)
-        {
-            //If the number is found already present at certain location we return zero
-            return 0;
-        }
-    }
-    //If the number is not found anywhere we return 1
-    return 1;
-}
-
-int checkgrid(int row, int column, int num)
-{
-    //This function checks whether we can put the number(num) in the 3*3 grid or not
-    //We get the starting row and column for the 3*3 grid
-    row = (row / 3) * 3;
-    column = (column / 3) * 3;
-
-    int r, c;
-    for (r = 0; r < 3; r++)
-    {
-        for (c = 0; c < 3; c++)
-        {
-            if (sudoku[row + r][column + c] == num)
-            {
-                //If the number is found already present at certain location we return zero
-                return 0;
-            }
-        }
-    }
-
-    //If the number is not found anywhere we return 1
-    return 1;
-}
-
-void navigate(int row, int column)
-{
-    //Function to move to the next cell in case we have filled one cell
-    if (column < 8)
-        solvesudoku(row, column + 1);
-    else
-        solvesudoku(row + 1, 0);
-}
-
-void display()
-{
-    //The function to display the solved Sudoku
-    int row, column;
-    printf("THE SOLVED SUDOKU \n");
-    for (row = 0; row < 9; row++)
-    {
-        for (column = 0; column < 9; column++)
-            printf("%d ", sudoku[row][column]);
-
-        printf("\n");
-    }
-}
-
-void solvesudoku(int row, int column)
-{
-    //If the row number is greater than 8 than we have filled all cells hence we have solved the sudoku
-    if (row > 8)
-        display();
-    if (sudoku[row][column] != 0)
-    {
-        //If the value filled at a cell is not zero than it is filled with some value from 0 to 9 hence we move further
-        navigate(row, column);
-    }
-    else
-    {
-        //This is a counter to check numbers from 1 to 9 whether the number can be filled in the cell or not
-        int ctr;
-        for (ctr = 1; ctr <= 9; ctr++)
-        {
-            //We check row,column and the grid
-            if ((checkrow(row, ctr) == 1) && (checkcolumn(column, ctr) == 1) && (checkgrid(row, column, ctr) == 1))
-            {
-                sudoku[row][column] = ctr;
-                navigate(row, column);
-            }
-        }
-        //No valid number was found so we clean up and return to the caller.
-        sudoku[row][column] = 0;
-    }
-}
+// Global variables to store the original and current grid
+int original[9][9], grid[9][9];
 
 int main()
 {
-    int row, column;
-    printf("Enter the desired sudoku and enter 0 for unknown entries\n");
-    for (row = 0; row < 9; row++)
-        for (column = 0; column < 9; column++)
-            scanf("%d", &sudoku[row][column]);
+    // Input the grid from the user
+    if (! input_grid()) {
+        printf("error: unable to input grid\n");
+        return 0;  // Exit if the grid input fails
+    }
 
-    //We start solving the sudoku.
-    solvesudoku(0, 0);
-    return 0;
+    // Validate the input grid (check if it's a valid Sudoku puzzle)
+    printf("\nvalidating puzzle... ");
+    if (! validate_grid()) {
+        printf("invalid!\n");
+        return 0;  // Exit if the grid is invalid
+    }
+
+    printf("valid.\n\nsolving following puzzle:\n");
+    print_grid();  // Display the puzzle to the user
+
+    // Try to solve the Sudoku puzzle using backtracking
+    if (! solve_cell(0, 0)) {
+        printf("\nunfortunately, your puzzle is unsolvable\n");
+        return 0;  // Exit if the puzzle can't be solved
+    }
+
+    // Print the solved grid if the puzzle is successfully solved
+    printf("\npuzzle solved:\n");
+    print_grid();
+    return 0;  // Successfully solved
+}
+
+// Function to input the Sudoku grid from the user
+int input_grid()
+{
+    int character, row, column;
+    row = column = 0;
+
+    // Prompt user for each row of the grid
+    printf("enter rows line by line. use numbers for known cells, ");
+    printf("zero or dot for missing cells.\nrow 1: ");
+
+    while (row < 9) {
+        character = getchar();  // Read each character from input
+
+        // Check if the character is a valid Sudoku number or placeholder (dot)
+        if ('0' <= character && character <= '9' || character == '.') {
+            if (column > 8) {
+                printf("error: each row has maximum 9 cells\n");
+                return 0;  // Exit if there are too many columns
+            }
+
+            // Store the input value in the grid and original array
+            if (character != '.')
+                original[row][column] = grid[row][column] = character - '0';
+
+            column++;  // Move to the next column
+
+        } else if (character == '\n') {
+            column = 0;  // Start a new row after entering a complete line
+            row++;  // Move to the next row
+            printf("row %i: ", row + 1);
+        }
+    }
+
+    return 1;  // Successfully input the grid
+}
+
+// Function to validate the grid (check if the current grid is valid)
+int validate_grid()
+{
+    int i, j;
+
+    // Check all filled cells to ensure they are valid according to Sudoku rules
+    for (i = 0; i < 9; i++)
+        for (j = 0; j < 9; j++)
+            if (grid[i][j] && !is_valid(i, j, grid[i][j]))  // Skip empty cells
+                return 0;  // Return false if any cell violates Sudoku rules
+
+    return 1;  // Return true if the grid is valid
+}
+
+// Function to solve the Sudoku puzzle using backtracking
+int solve_cell(int row, int column)
+{
+    int number = 1;
+
+    // Move to the next column or row if necessary
+    if (column == 9) {
+        column = 0;
+        row++;
+    }
+
+    if (row == 9)
+        return 1;  // Puzzle is solved if we have filled all cells
+
+    // Try all numbers (1-9) for the current cell
+    while (number < 10) {
+        // If the number is valid for this cell, place it and move to the next cell
+        if (is_valid(row, column, number)) {
+            grid[row][column] = number;
+
+            // Recursively solve the next cell
+            if (solve_cell(row, column + 1))
+                return 1;
+        }
+
+        grid[row][column] = 0;  // Backtrack if the number doesn't work
+        number++;  // Try the next number
+    }
+
+    return 0;  // Return false if no solution was found for this cell
+}
+
+// Function to check if a value is valid at a specific position
+int is_valid(int row, int column, int value)
+{
+    int i, j, r, c;
+
+    // Check if the cell is predefined in the original grid
+    if (original[row][column] != 0)
+        if (original[row][column] != value)
+            return 0;
+
+    // Check for the value in the same row
+    for (i = 0; i < 9; i++)
+        if (i != column && grid[row][i] == value)
+            return 0;  // Return false if the value is already in the row
+
+    // Check for the value in the same column
+    for (i = 0; i < 9; i++)
+        if (i != row && grid[i][column] == value)
+            return 0;  // Return false if the value is already in the column
+
+    // Check the 3x3 sub-grid (box)
+    r = (row / 3) * 3;
+    c = (column / 3) * 3;
+    for (i = r; i < r + 3; i++)
+        for (j = c; j < c + 3; j++)
+            if (i != row || j != column)
+                if (grid[i][j] == value)
+                    return 0;  // Return false if the value is in the 3x3 box
+
+    return 1;  // Return true if the value is valid
+}
+
+// Function to print the Sudoku grid
+void print_grid()
+{
+    int i, j;
+
+    // Print the grid with borders between rows and columns
+    for (i = 0; i < 10; i++) {
+        if (i % 3 == 0)
+            printf("+-------+-------+-------+\n");
+
+        if (i == 9)
+            return;
+
+        for (j = 0; j < 9; j++) {
+            if (j % 3 == 0)
+                printf("| ");
+
+            // Print the number or a dot for empty cells
+            grid[i][j] != 0 ? printf("%d ", grid[i][j]) : printf(". ");
+        }
+
+        printf("|\n");
+    }
 }
